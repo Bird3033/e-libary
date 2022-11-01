@@ -1,0 +1,441 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model AdminAccount {
+  id              Int               @id @unique(map: "id") @default(autoincrement()) @db.UnsignedInt
+  userName        String            @unique(map: "userName") @db.VarChar(30)
+  email           String            @unique(map: "email") @db.VarChar(30)
+  password        String            @db.Char(72)
+  isSuper         Boolean?          @default(false)
+  adminInfo       AdminInfo?
+  adminPermission AdminPermission[] @relation("admin_accountToadmin_permission") @ignore
+  adminRole       AdminRole[]       @relation("admin_accountToadmin_role") @ignore
+
+  @@map("admin_account")
+}
+
+model AdminInfo {
+  adminId      Int                @unique(map: "adminId") @db.UnsignedInt
+  firstName    String             @db.VarChar(30)
+  lastName     String             @db.VarChar(30)
+  gender       admin_info_gender?
+  phoneNumber  String             @unique(map: "phoneNumber") @db.VarChar(20)
+  adminAccount AdminAccount       @relation(fields: [adminId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "admin_info_ibfk_1")
+
+  @@map("admin_info")
+}
+
+model Audio {
+  id        BigInt     @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
+  bookId    BigInt     @unique(map: "bookId") @db.UnsignedBigInt
+  timing    String     @db.VarChar(30)
+  size      String     @db.VarChar(20)
+  book      Book       @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "audio_ibfk_1")
+  audioFile AudioFile?
+
+  @@map("audio")
+}
+
+model AudioFile {
+  audioId      BigInt @unique(map: "audioId") @db.UnsignedBigInt
+  originalName String @db.VarChar(200)
+  fileName     String @db.VarChar(200)
+  mineType     String @db.VarChar(150)
+  path         String @db.VarChar(255)
+  audio        Audio  @relation(fields: [audioId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "audio_file_ibfk_1")
+
+  @@map("audio_file")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by the Prisma Client.
+model Author {
+  bookId      BigInt @db.UnsignedBigInt
+  fullName    String @db.VarChar(100)
+  major       String @db.VarChar(150)
+  phoneNumber String @db.VarChar(20)
+  email       String @db.VarChar(50)
+  book        Book   @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "authors_ibfk_1")
+
+  @@index([bookId], map: "bookId")
+  @@index([fullName], map: "title_index")
+  @@map("authors")
+  @@ignore
+}
+
+model Banner {
+  id             Int          @id @unique(map: "id") @default(autoincrement()) @db.UnsignedInt
+  bookId         BigInt       @unique(map: "bookId") @db.UnsignedBigInt
+  userId         Int?         @db.UnsignedInt
+  duration_start DateTime?    @db.Date
+  duration_end   DateTime?    @db.Date
+  status         Boolean?     @default(false)
+  userAccount    UserAccount? @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "banner_ibfk_1")
+  book           Book         @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "banner_ibfk_2")
+  bannerFile     BannerFile?
+
+  @@index([userId], map: "userId")
+  @@map("banner")
+}
+
+model BannerFile {
+  bannerId Int    @unique(map: "bannerId") @db.UnsignedInt
+  fileName String @db.VarChar(200)
+  mineType String @db.VarChar(150)
+  path     String @db.VarChar(255)
+  banner   Banner @relation(fields: [bannerId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "banner_file_ibfk_1")
+
+  @@map("banner_file")
+}
+
+model Book {
+  id            BigInt         @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
+  userId        Int?           @db.UnsignedInt
+  subCategoryId Int            @db.UnsignedInt
+  title         String         @unique(map: "title") @db.VarChar(100)
+  adminApprove  Boolean        @default(false)
+  published     Boolean        @default(false)
+  userAccount   UserAccount?   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "book_ibfk_1")
+  subCategory   SubCategory    @relation(fields: [subCategoryId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "book_ibfk_2")
+  audio         Audio?
+  authors       Author[]       @ignore
+  banner        Banner?
+  bookPDF       BookPDF?
+  bookThumbnail BookThumbnail? @relation("bookTobook_thumbnail")
+  bookMark      BookMark[]     @ignore
+  bookShelf     BookShelf[]    @ignore
+  language      Language?
+  price         Price?
+  rate          Rate?
+  video         Video?
+
+  @@index([subCategoryId], map: "subCategoryId")
+  @@index([title], map: "title_index")
+  @@index([userId], map: "userId")
+  @@map("book")
+}
+
+model BookFile {
+  id           BigInt  @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
+  bookPDFId    BigInt  @db.UnsignedBigInt
+  originalName String  @db.VarChar(200)
+  fileName     String  @db.VarChar(200)
+  mineType     String  @db.VarChar(150)
+  path         String  @db.VarChar(255)
+  bookPDF      BookPDF @relation(fields: [bookPDFId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "book_file_ibfk_1")
+
+  @@index([bookPDFId], map: "bookPDFId")
+  @@map("book_file")
+}
+
+model BookPDF {
+  id              BigInt       @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
+  bookId          BigInt       @unique(map: "bookId") @db.UnsignedBigInt
+  publisher       String       @db.VarChar(100)
+  bookPage        Int
+  manufactureDate DateTime     @db.Date
+  ISBN            String       @db.VarChar(20)
+  briefContent    String       @db.Text
+  book            Book         @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "book_pdf_ibfk_1")
+  bookFile        BookFile[]
+  description     Description?
+  stakeholders    Stakeholder?
+
+  @@index([ISBN], map: "isbn_index")
+  @@index([manufactureDate], map: "manufacture_date_index")
+  @@map("book_pdf")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by the Prisma Client.
+model BookMark {
+  userId      Int         @db.UnsignedInt
+  bookId      BigInt      @db.UnsignedBigInt
+  userAccount UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "bookmark_ibfk_1")
+  book        Book        @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "bookmark_ibfk_2")
+
+  @@index([bookId], map: "bookId")
+  @@index([userId], map: "userId")
+  @@map("bookmark")
+  @@ignore
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by the Prisma Client.
+model BookShelf {
+  userId      Int         @db.UnsignedInt
+  bookId      BigInt      @db.UnsignedBigInt
+  userAccount UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "bookshelf_ibfk_1")
+  book        Book        @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "bookshelf_ibfk_2")
+
+  @@index([bookId], map: "bookId")
+  @@index([userId], map: "userId")
+  @@map("bookshelf")
+  @@ignore
+}
+
+model Category {
+  id            Int           @id @unique(map: "id") @default(autoincrement()) @db.UnsignedInt
+  name          String        @unique(map: "name") @db.VarChar(50)
+  subCategories SubCategory[]
+
+  @@map("categories")
+}
+
+model Description {
+  bookPDFId BigInt  @unique(map: "bookPDFId") @db.UnsignedBigInt
+  content   String  @db.Text
+  bookPDF   BookPDF @relation(fields: [bookPDFId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "description_ibfk_1")
+
+  @@map("description")
+}
+
+model Language {
+  bookId BigInt @unique(map: "bookId_UNIQUE") @db.UnsignedBigInt
+  name   String @unique(map: "name") @db.VarChar(50)
+  book   Book   @relation(fields: [bookId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "language_ibfk_1")
+
+  @@map("language")
+}
+
+model MemberInfo {
+  userId      Int         @unique(map: "userId") @db.UnsignedInt
+  name        String      @db.VarChar(100)
+  village     String      @db.VarChar(30)
+  district    String      @db.VarChar(30)
+  province    String      @db.VarChar(30)
+  userAccount UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "member_info_ibfk_1")
+
+  @@map("member_info")
+}
+
+model MemberType {
+  id          Int           @id @unique(map: "id") @default(autoincrement()) @db.UnsignedInt
+  name        String        @db.VarChar(100)
+  userAccount UserAccount[]
+
+  @@map("member_type")
+}
+
+model Price {
+  id     BigInt  @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
+  bookId BigInt  @unique(map: "bookId_UNIQUE") @db.UnsignedBigInt
+  price  Decimal @db.Decimal(8, 2)
+  book   Book    @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "price_ibfk_1")
+
+  @@index([price], map: "price_index")
+  @@map("price")
+}
+
+model Rate {
+  bookId        BigInt @unique(map: "bookId") @db.UnsignedBigInt
+  totalDownload Int    @default(0) @db.UnsignedInt
+  totalView     Int    @default(0) @db.UnsignedInt
+  book          Book   @relation(fields: [bookId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "rates_ibfk_1")
+
+  @@index([totalDownload], map: "total_download_index")
+  @@index([totalView], map: "total_view_index")
+  @@map("rates")
+}
+
+model Stakeholder {
+  bookId                BigInt  @unique(map: "bookId") @db.UnsignedBigInt
+  editor                String? @db.VarChar(100)
+  coverDesigner         String? @db.VarChar(100)
+  proofreader           String? @db.VarChar(100)
+  productionCoordinator String? @db.VarChar(100)
+  bookPDF               BookPDF @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "stakeholders_ibfk_1")
+
+  @@map("stakeholders")
+}
+
+model SubCategory {
+  id         Int       @id @unique(map: "id") @default(autoincrement()) @db.UnsignedInt
+  categoryId Int?      @db.UnsignedInt
+  name       String    @unique(map: "name") @db.VarChar(50)
+  categories Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "sub_categories_ibfk_1")
+  book       Book[]
+
+  @@index([categoryId], map: "categoryId")
+  @@map("sub_categories")
+}
+
+model SupportedBanner {
+  id                  Int                  @id @unique(map: "id") @default(autoincrement()) @db.UnsignedInt
+  duration_start      DateTime             @db.Date
+  duration_end        DateTime             @db.Date
+  status              Boolean?             @default(false)
+  supportedBannerFile SupportedBannerFile?
+
+  @@map("supported_banner")
+}
+
+model SupportedBannerFile {
+  supportedBannerId Int             @unique(map: "supportedBannerId") @db.UnsignedInt
+  fileName          String          @db.VarChar(200)
+  mineType          String          @db.VarChar(150)
+  path              String          @db.VarChar(255)
+  supportedBanner   SupportedBanner @relation(fields: [supportedBannerId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "supported_banner_file_ibfk_1")
+
+  @@map("supported_banner_file")
+}
+
+model UserAccount {
+  id            Int                       @id @unique(map: "id") @default(autoincrement()) @db.UnsignedInt
+  memberTypeId  Int?                      @db.UnsignedInt
+  userName      String                    @unique(map: "userName_UNIQUE") @db.VarChar(30)
+  password      String                    @db.Char(72)
+  email         String                    @unique(map: "email") @db.VarChar(30)
+  phoneNumber   String                    @unique(map: "phoneNumber") @db.VarChar(20)
+  registerType  user_account_registerType
+  isMember      Boolean                   @default(false)
+  isBan         Boolean                   @default(false)
+  memberType    MemberType?               @relation(fields: [memberTypeId], references: [id], onUpdate: NoAction, map: "user_account_ibfk_1")
+  banner        Banner[]
+  book          Book[]
+  bookMark      BookMark[]                @ignore
+  bookShelf     BookShelf[]               @ignore
+  memberInfo    MemberInfo?
+  userInfo      UserInfo?
+  userLimitBook UserLimitBook?
+  userRequest   UserRequest?
+
+  @@index([memberTypeId], map: "memberTypeId")
+  @@map("user_account")
+}
+
+model UserInfo {
+  userId      Int              @unique(map: "userId") @db.UnsignedInt
+  firstName   String           @db.VarChar(30)
+  lastName    String           @db.VarChar(30)
+  gender      user_info_gender
+  village     String           @db.VarChar(30)
+  district    String           @db.VarChar(30)
+  province    String           @db.VarChar(30)
+  userAccount UserAccount      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_info_ibfk_1")
+
+  @@map("user_info")
+}
+
+model UserLimitBook {
+  userId      Int         @unique(map: "userId") @db.UnsignedInt
+  book        Boolean     @default(false)
+  bookTotal   Int         @default(100)
+  audio       Boolean     @default(false)
+  audioTotal  Int         @default(100)
+  video       Boolean     @default(false)
+  videoTotal  Int         @default(100)
+  userAccount UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_limit_book_ibfk_1")
+
+  @@map("user_limit_book")
+}
+
+model UserRequest {
+  id          Int                  @id @unique(map: "id") @default(autoincrement()) @db.UnsignedInt
+  userId      Int                  @unique(map: "userId") @db.UnsignedInt
+  title       String               @db.VarChar(100)
+  description String               @db.VarChar(100)
+  status      user_request_status?
+  userAccount UserAccount          @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_request_ibfk_1")
+
+  @@map("user_request")
+}
+
+model Video {
+  id        BigInt     @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
+  bookId    BigInt     @unique(map: "bookId") @db.UnsignedBigInt
+  timing    String     @db.VarChar(30)
+  size      String     @db.VarChar(20)
+  book      Book       @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "video_ibfk_1")
+  videoFile VideoFile?
+
+  @@map("video")
+}
+
+model VideoFile {
+  videoId      BigInt @unique(map: "videoId") @db.UnsignedBigInt
+  originalName String @db.VarChar(200)
+  fileName     String @db.VarChar(200)
+  mineType     String @db.VarChar(150)
+  path         String @db.VarChar(255)
+  video        Video  @relation(fields: [videoId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "video_file_ibfk_1")
+
+  @@map("video_file")
+}
+
+model BookThumbnail {
+  bookId   BigInt @unique(map: "bookId") @db.UnsignedBigInt
+  fileName String @db.VarChar(200)
+  mineType String @db.VarChar(150)
+  path     String @db.VarChar(255)
+  book     Book   @relation("bookTobook_thumbnail", fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "book_thumbnail_ibfk_1")
+
+  @@map("book_thumbnail")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by the Prisma Client.
+model AdminPermission {
+  adminId      Int          @db.UnsignedInt
+  permissionId Int          @db.UnsignedTinyInt
+  permission   Permission   @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "admin_permission_ibfk_1")
+  adminAccount AdminAccount @relation("admin_accountToadmin_permission", fields: [adminId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "admin_permission_ibfk_2")
+
+  @@index([adminId], map: "adminId")
+  @@index([permissionId], map: "permissionId")
+  @@map("admin_permission")
+  @@ignore
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by the Prisma Client.
+model AdminRole {
+  adminId      Int          @db.UnsignedInt
+  roleId       Int          @db.UnsignedTinyInt
+  role         Role         @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "admin_role_ibfk_1")
+  adminAccount AdminAccount @relation("admin_accountToadmin_role", fields: [adminId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "admin_role_ibfk_2")
+
+  @@index([adminId], map: "adminId")
+  @@index([roleId], map: "roleId")
+  @@map("admin_role")
+  @@ignore
+}
+
+model Permission {
+  id              Int               @id @unique(map: "id") @default(autoincrement()) @db.UnsignedTinyInt
+  name            String            @unique(map: "name") @db.VarChar(30)
+  adminPermission AdminPermission[] @ignore
+
+  @@map("permission")
+}
+
+model Role {
+  id        Int         @id @unique(map: "id") @default(autoincrement()) @db.UnsignedTinyInt
+  name      String      @unique(map: "name") @db.VarChar(30)
+  adminRole AdminRole[] @ignore
+
+  @@map("role")
+}
+
+enum admin_info_gender {
+  male
+  female
+  other
+}
+
+enum user_info_gender {
+  male
+  female
+  other
+}
+
+enum user_request_status {
+  approve
+  reject
+}
+
+enum user_account_registerType {
+  web
+  mobile
+}
