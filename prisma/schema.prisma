@@ -12,7 +12,6 @@ model AdminAccount {
   userName        String            @unique(map: "userName") @db.VarChar(30)
   email           String            @unique(map: "email") @db.VarChar(30)
   password        String            @db.Char(72)
-  isSuper         Boolean?          @default(false)
   adminInfo       AdminInfo?
   adminPermission AdminPermission[] @relation("admin_accountToadmin_permission") @ignore
   adminRole       AdminRole[]       @relation("admin_accountToadmin_role") @ignore
@@ -34,7 +33,7 @@ model AdminInfo {
 model Audio {
   id        BigInt     @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
   bookId    BigInt     @unique(map: "bookId") @db.UnsignedBigInt
-  timing    String     @db.VarChar(30)
+  timing    String?    @db.VarChar(30)
   size      String     @db.VarChar(20)
   book      Book       @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "audio_ibfk_1")
   audioFile AudioFile?
@@ -55,12 +54,12 @@ model AudioFile {
 
 /// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by the Prisma Client.
 model Author {
-  bookId      BigInt @db.UnsignedBigInt
-  fullName    String @db.VarChar(100)
-  major       String @db.VarChar(150)
-  phoneNumber String @db.VarChar(20)
-  email       String @db.VarChar(50)
-  book        Book   @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "authors_ibfk_1")
+  bookId      BigInt  @db.UnsignedBigInt
+  fullName    String  @db.VarChar(100)
+  major       String? @db.VarChar(150)
+  phoneNumber String? @db.VarChar(20)
+  email       String? @db.VarChar(50)
+  book        Book    @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "authors_ibfk_1")
 
   @@index([bookId], map: "bookId")
   @@index([fullName], map: "title_index")
@@ -96,12 +95,14 @@ model BannerFile {
 model Book {
   id            BigInt         @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
   userId        Int?           @db.UnsignedInt
+  historyId     Int?           @db.UnsignedInt
   subCategoryId Int            @db.UnsignedInt
-  title         String         @unique(map: "title") @db.VarChar(100)
+  title         String         @db.VarChar(100)
   adminApprove  Boolean        @default(false)
   published     Boolean        @default(false)
   userAccount   UserAccount?   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "book_ibfk_1")
-  subCategory   SubCategory    @relation(fields: [subCategoryId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "book_ibfk_2")
+  historyImport HistoryImport? @relation("bookTohistory_import", fields: [historyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "book_ibfk_2")
+  subCategory   SubCategory    @relation(fields: [subCategoryId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "book_ibfk_3")
   audio         Audio?
   authors       Author[]       @ignore
   banner        Banner?
@@ -117,6 +118,7 @@ model Book {
   @@index([subCategoryId], map: "subCategoryId")
   @@index([title], map: "title_index")
   @@index([userId], map: "userId")
+  @@index([historyId], map: "historyId")
   @@map("book")
 }
 
@@ -136,11 +138,11 @@ model BookFile {
 model BookPDF {
   id              BigInt       @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
   bookId          BigInt       @unique(map: "bookId") @db.UnsignedBigInt
-  publisher       String       @db.VarChar(100)
-  bookPage        Int
-  manufactureDate DateTime     @db.Date
-  ISBN            String       @db.VarChar(20)
-  briefContent    String       @db.Text
+  publisher       String?      @db.VarChar(100)
+  bookPage        Int?
+  manufactureDate DateTime?    @db.Date
+  ISBN            String?      @db.VarChar(20)
+  briefContent    String?      @db.Text
   book            Book         @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "book_pdf_ibfk_1")
   bookFile        BookFile[]
   description     Description?
@@ -187,16 +189,16 @@ model Category {
 
 model Description {
   bookPDFId BigInt  @unique(map: "bookPDFId") @db.UnsignedBigInt
-  content   String  @db.Text
+  content   String? @db.Text
   bookPDF   BookPDF @relation(fields: [bookPDFId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "description_ibfk_1")
 
   @@map("description")
 }
 
 model Language {
-  bookId BigInt @unique(map: "bookId_UNIQUE") @db.UnsignedBigInt
-  name   String @unique(map: "name") @db.VarChar(50)
-  book   Book   @relation(fields: [bookId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "language_ibfk_1")
+  bookId   BigInt @unique(map: "bookId") @db.UnsignedBigInt
+  language String @unique(map: "language") @db.VarChar(50)
+  book     Book   @relation(fields: [bookId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "language_ibfk_1")
 
   @@map("language")
 }
@@ -222,7 +224,7 @@ model MemberType {
 
 model Price {
   id     BigInt  @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
-  bookId BigInt  @unique(map: "bookId_UNIQUE") @db.UnsignedBigInt
+  bookId BigInt  @unique(map: "bookId") @db.UnsignedBigInt
   price  Decimal @db.Decimal(8, 2)
   book   Book    @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "price_ibfk_1")
 
@@ -284,60 +286,47 @@ model SupportedBannerFile {
 }
 
 model UserAccount {
-  id            Int                       @id @unique(map: "id") @default(autoincrement()) @db.UnsignedInt
-  memberTypeId  Int?                      @db.UnsignedInt
-  userName      String                    @unique(map: "userName_UNIQUE") @db.VarChar(30)
-  password      String                    @db.Char(72)
-  email         String                    @unique(map: "email") @db.VarChar(30)
-  phoneNumber   String                    @unique(map: "phoneNumber") @db.VarChar(20)
-  registerType  user_account_registerType
-  isMember      Boolean                   @default(false)
-  isBan         Boolean                   @default(false)
-  memberType    MemberType?               @relation(fields: [memberTypeId], references: [id], onUpdate: NoAction, map: "user_account_ibfk_1")
-  banner        Banner[]
-  book          Book[]
-  bookMark      BookMark[]                @ignore
-  bookShelf     BookShelf[]               @ignore
-  memberInfo    MemberInfo?
-  userInfo      UserInfo?
-  userLimitBook UserLimitBook?
-  userRequest   UserRequest?
+  id               Int                        @id @unique(map: "id") @default(autoincrement()) @db.UnsignedInt
+  memberTypeId     Int?                       @db.UnsignedInt
+  userName         String                     @unique(map: "userName") @db.VarChar(30)
+  password         String                     @db.Char(72)
+  email            String                     @unique(map: "email") @db.VarChar(30)
+  phoneNumber      String                     @unique(map: "phoneNumber") @db.VarChar(20)
+  registerType     user_account_registerType?
+  isMember         Boolean                    @default(false)
+  isBan            Boolean                    @default(false)
+  memberType       MemberType?                @relation(fields: [memberTypeId], references: [id], onUpdate: NoAction, map: "user_account_ibfk_1")
+  banner           Banner[]
+  book             Book[]
+  bookMark         BookMark[]                 @ignore
+  bookShelf        BookShelf[]                @ignore
+  memberInfo       MemberInfo?
+  userInfo         UserInfo?
+  userLimitStorage UserLimitStorage?          @relation("user_accountTouser_limit_storage")
+  userRequest      UserRequest?
 
   @@index([memberTypeId], map: "memberTypeId")
   @@map("user_account")
 }
 
 model UserInfo {
-  userId      Int              @unique(map: "userId") @db.UnsignedInt
-  firstName   String           @db.VarChar(30)
-  lastName    String           @db.VarChar(30)
-  gender      user_info_gender
-  village     String           @db.VarChar(30)
-  district    String           @db.VarChar(30)
-  province    String           @db.VarChar(30)
-  userAccount UserAccount      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_info_ibfk_1")
+  userId      Int               @unique(map: "userId") @db.UnsignedInt
+  firstName   String            @db.VarChar(30)
+  lastName    String            @db.VarChar(30)
+  gender      user_info_gender?
+  village     String            @db.VarChar(30)
+  district    String            @db.VarChar(30)
+  province    String            @db.VarChar(30)
+  userAccount UserAccount       @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_info_ibfk_1")
 
   @@map("user_info")
-}
-
-model UserLimitBook {
-  userId      Int         @unique(map: "userId") @db.UnsignedInt
-  book        Boolean     @default(false)
-  bookTotal   Int         @default(100)
-  audio       Boolean     @default(false)
-  audioTotal  Int         @default(100)
-  video       Boolean     @default(false)
-  videoTotal  Int         @default(100)
-  userAccount UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_limit_book_ibfk_1")
-
-  @@map("user_limit_book")
 }
 
 model UserRequest {
   id          Int                  @id @unique(map: "id") @default(autoincrement()) @db.UnsignedInt
   userId      Int                  @unique(map: "userId") @db.UnsignedInt
   title       String               @db.VarChar(100)
-  description String               @db.VarChar(100)
+  content     String               @db.Text
   status      user_request_status?
   userAccount UserAccount          @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_request_ibfk_1")
 
@@ -347,7 +336,7 @@ model UserRequest {
 model Video {
   id        BigInt     @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
   bookId    BigInt     @unique(map: "bookId") @db.UnsignedBigInt
-  timing    String     @db.VarChar(30)
+  timing    String?    @db.VarChar(30)
   size      String     @db.VarChar(20)
   book      Book       @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "video_ibfk_1")
   videoFile VideoFile?
@@ -418,6 +407,23 @@ model Role {
   @@map("role")
 }
 
+model HistoryImport {
+  id         Int      @id @unique(map: "id") @default(autoincrement()) @db.UnsignedInt
+  importedAt DateTime @default(now()) @db.DateTime(0)
+  book       Book[]   @relation("bookTohistory_import")
+
+  @@map("history_import")
+}
+
+model UserLimitStorage {
+  userId       Int                     @unique(map: "userId") @db.UnsignedInt
+  storageLimit Int
+  unit         user_limit_storage_unit
+  user_account UserAccount             @relation("user_accountTouser_limit_storage", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_limit_storage_ibfk_1")
+
+  @@map("user_limit_storage")
+}
+
 enum admin_info_gender {
   male
   female
@@ -438,4 +444,12 @@ enum user_request_status {
 enum user_account_registerType {
   web
   mobile
+}
+
+enum user_limit_storage_unit {
+  KB
+  MB
+  GB
+  TB
+  PB
 }

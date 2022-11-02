@@ -19,7 +19,6 @@ export class AdminService {
         id: true,
         userName: true,
         email: true,
-        isSuper: true,
       },
     });
   }
